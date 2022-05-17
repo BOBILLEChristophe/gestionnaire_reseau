@@ -1,1 +1,288 @@
-// TCO
+
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TCO</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<style type="text/css">
+body {
+	margin: 10px;
+}
+/*table {
+	border-spacing: 10px;
+	border-collapse: 10px;
+}*/
+td {
+	padding: 0px;
+}
+.clickable {
+	cursor: pointer;
+}
+.picto {
+	width: 75px;
+	height: 75px;
+}
+.champ_header {
+	padding: 10px;
+	display: inline;
+}
+input[type=checkbox] {
+	margin: 10px;
+}
+.delete {
+	cursor: wait;
+}
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script>
+
+	var synoptique = {}; // Déclaration de l'objet qui va recevoir le fichier de déscription id à var synoptique = new Object;
+	var tab_aig = []; // Tableau des aiguillage
+	
+	$(function() {
+	  synoptique = null;
+	  // On tente de charger le fichier de déscription à partir du localstorage
+	  synoptique = JSON.parse(localStorage.getItem("synoptique"));
+	
+	  if (synoptique === null) { // Pas de fichier dans le local storage
+		// Importation du fichier de configuration "synoptique.json" qui est sur le disque
+		$.getJSON("synoptique.json", function(data) {
+		  synoptique = data;
+		  tcoBuilt(synoptique); // Appel de la fonction qui va dessiner le réseau
+		  //console.log(synoptique);
+		  $("#objJson").append(JSON.stringify(synoptique, null, '\t'));
+		});
+	  }
+	  else {
+		// Impossible de charger un fichier de déscription
+		if (synoptique === null) alert("Impossible de charger un fichier de déscription pour le synoptique.");
+		else { // Dans le cas contraire
+		  tcoBuilt(synoptique);    // Appel de la fonction qui va dessiner le réseau
+		  //console.log(synoptique);
+		  $("#objJson").append(JSON.stringify(synoptique, null, '\t'));
+		}
+	  }
+	});
+	
+	// Classe aiguillage
+	var Aiguillage = function (ID, status, posT, posD, img) {	
+		let obj = {};
+		obj.ID = ID;
+		obj.status = status;
+		obj.posT = posT;
+		obj.posD = posD;
+		obj.img = img.substring(0, img.length -1);
+		obj.change = function () {
+			if(this.status == "T") {
+				console.log("Aiguillage "+this.ID+" digitaWrite(de tourné vers droit)")
+				this.status = "D";
+			}
+			else {
+				console.log("Aiguillage "+this.ID+" digitaWrite(de droit vers tourné)")
+				this.status = "T";
+			}
+			document.getElementById('aig_'+this.ID).setAttribute("src", "img/" + this.img + this.status + ".png");
+		};
+		return obj;
+	}
+	
+	
+	// Construction du tableau devant recevoir le TCO
+	var tcoBuilt = function (synoptique) { // ! En JS, les tableaux sont passés par reference
+	  synoptique.forEach(function (element, index) {
+		tcoAddRow(index, synoptique);
+	  });
+	};
+	
+	// Construction des lignes du tableau
+	var tcoAddRow = function (i, synoptique) {
+	  var row = document.createElement("tr");
+	  // Construction des colonnes du tableau
+	  synoptique[i].forEach(function (element, index) {
+		cell = document.createElement("td");                 // Création de la cellule
+		cell.setAttribute("id", synoptique[i][index]["ID"]); // Ajout de l'attribut "id"
+		row.appendChild(cell);                               // Ajout de <td> à la ligne i du tableau
+	
+		// Création de l'élément image
+		picto = document.createElement("img");
+		if (synoptique[i][index]["aigNum"] > 0) {
+		  let num = synoptique[i][index]["aigNum"];
+		  let status = synoptique[i][index]["status"];
+		  let posT = synoptique[i][index]["posT"];
+		  let posD = synoptique[i][index]["posD"];
+		  let image = synoptique[i][index]["img"];
+		  picto.setAttribute("id", "aig_" + num);
+		  picto.setAttribute("title", "aiguillage " + num);
+		  picto.setAttribute("name", num);
+		  tab_aig.push(Aiguillage(num, status, posT, posD, image)); // Instance d'Aiguillage
+		}
+		picto.setAttribute("src", "img/" + synoptique[i][index]["img"] + ".png");
+		picto.setAttribute("class", synoptique[i][index]["classCss"]);
+		$(picto).on( "click", onMouseClick );
+		cell.appendChild(picto);
+	
+	  });
+	  document.getElementById("tab_tco").appendChild(row);
+	};
+
+	
+	// var key = 0;
+	// var keyEvent = function () {
+	//   key = event.keyCode;
+	// };
+	
+	var tab_pictos = ["dv", "dh", "so", "se", "no", "ne"];
+	var tab_pictosAig = ["aghT", "adbT", "agbT", "adhT", "ag45T", "avgbT", "avghT", "avdhT"];
+	var idxPicto = 0;
+	
+	var onMouseClick = function () {
+		console.log("onMouseClick");
+
+		let L = this.offsetParent.id.substring(0, this.offsetParent.id.indexOf("-"));
+	  	let C = this.offsetParent.id.substring(this.offsetParent.id.indexOf("-") + 1);
+	  	let numAig = 0;
+
+	  	let tab_cur = [];
+		switch (this.id.substring(0, 3)) {
+		  case "aig":
+			tab_cur = tab_pictosAig;
+			numAig = this.id.substring(4)
+			break;
+		  default:
+			tab_cur = tab_pictos;
+		} 
+
+		// key = 0;
+		// if( key == 68 ) {
+		// 	console.log(key);
+		// 	this.src = "img/empty.png";
+		// 	this.removeAttribute("title");
+		// 	this.removeAttribute("id");
+		// 	this.classList.remove("clickable");
+		// 	synoptique[L][C]["img"] = "empty";
+		// 	synoptique[L][C]["aigNum"] = 0;
+		// 	synoptique[L][C]["classCss"] = "picto";
+		 	
+		// }
+
+		if (document.getElementById('ChBxDelete').checked) {
+			this.src = "img/empty.png";
+			this.removeAttribute("title");
+			this.removeAttribute("id");
+			this.classList.remove("clickable");
+			synoptique[L][C]["img"] = "empty";
+			synoptique[L][C]["aigNum"] = 0;
+			synoptique[L][C]["classCss"] = "picto";
+	  	}
+	  	else if (document.getElementById('ChBxModify').checked) {
+			idxPicto++;		
+		console.log(idxPicto);
+		document.getElementById("tab_tco").style.cursor = "cell";
+			if (idxPicto >= tab_cur.length)
+				idxPicto = 0;
+			//if (this.src.indexOf(tab_cur[idxPicto]) > -1) // Si l'image proposée est differente de celle affichée
+			  //idxPicto++;
+			this.src = "img/" + tab_cur[idxPicto] + ".png";
+			synoptique[L][C]["img"] = tab_cur[idxPicto];
+		}
+	  
+		else if (numAig > 0) {
+			var obj = null;
+			function findAig(tab_aig) { return tab_aig.ID == numAig; }
+			obj = tab_aig.find(findAig);
+			obj.change();
+		}
+	}
+	
+	
+	
+	// Création d'une matrice standard et enregistrement dans un fichier Json
+	var creerTab = function () {
+	  let x = 20;
+	  let y = 15;
+	  synoptique = [];
+	  for (let i = 0; i < y; i++) {
+		synoptique[i] = "";
+	  }
+	  synoptique.forEach(function (element, index) {
+		synoptique[index] = [];
+		for (let i = 0; i < x; i++) {
+		  synoptique[index][i] = jQuery.parseJSON( "{ \"ID\": " + index + "-" + i + "\", \"img\": \"dh.png\", \"classCss\": \"picto\", \"aigID\": 0, \"status\": \"\", \"aigPosT\": 0, \"aigPosD\": 0 }" );
+		}
+	  });
+	  //console.log(synoptique);
+	  // Sauvegarde dans le localStorage
+	  localStorage.setItem("synoptique", JSON.stringify(synoptique));
+	}; // creerTab
+	
+	
+	// Sauvegarde dans le localStorage
+	var recLocalstorage = function() {
+	  localStorage.setItem("synoptique", JSON.stringify(synoptique));
+	};
+	
+	
+	// Zoom
+	var pictoSize = 75;
+	var zoom = function (sens) {
+	  var pictoClass = document.styleSheets[1].cssRules[4].style;
+	  switch (sens) {
+		case "-":
+		  pictoSize -= 5;
+		  break;
+		case "+":
+		  pictoSize += 5;
+		  break;
+	  }
+	  pictoClass.cssText = "width: " + pictoSize + "px; height: " + pictoSize + "px;"
+	};
+
+	// Padding - espace entre les cases
+	var padding = function (val) {
+	  var pictoClass = document.styleSheets[1].cssRules[2].style;
+	  pictoClass.cssText = "padding: " + val + "px;"
+	};
+  
+
+
+</script>
+</head>
+
+<!--<body onkeydown="keyEvent(event)">-->
+<body>
+<header> 
+  <!--<button onclick="creerTab()">Créer tableau</button>-->
+  <div class="champ_header">
+    <button type="button" class="btn btn-default glyphicon glyphicon-floppy-save" onclick="recLocalstorage()"></button>
+  </div>
+  <div class="champ_header">
+    <button type="button" class="btn btn-default glyphicon glyphicon-zoom-out" onclick="zoom('-')"></button>
+  </div>
+  <div class="champ_header">
+    <button type="button" class="btn btn-default glyphicon glyphicon-zoom-in" onclick="zoom('+')"></button>
+  </div>
+   <div class="champ_header">
+    <button type="button" class="btn btn-default glyphicon glyphicon-trash" onclick="recLocalstorage()"></button>
+  </div>
+  <div class="champ_header">
+    <label>
+      <input type="checkbox" id="ChBxDelete">
+      Delete.</label>
+  </div>
+  <div class="champ_header">
+    <label>
+      <input type="checkbox" id="ChBxModify">
+      Modify.</label>
+  </div>
+  <!--<div class="champ_header">
+    <label>
+      <input type="number" id="" onclick="padding(this.value)">
+      Padding.</label>
+  </div>-->
+</header>
+<table id="tab_tco">
+</table>
+<pre id="objJson"></pre>
+</body>
+</html>
